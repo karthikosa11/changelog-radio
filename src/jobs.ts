@@ -41,13 +41,19 @@
 
 import type { Job, JobContext } from 'deepspace/worker'
 import type { Env } from '../worker'
-import { SCAN_RELEASES, type ScanPayload } from './lib/jobs'
+import { SCAN_RELEASES, SUMMARIZE_RELEASE, type ScanPayload, type SummarizePayload } from './lib/jobs'
 import { scanReleases } from './jobs/scan-releases'
+import { summarizeRelease } from './jobs/summarize-release'
 
-export async function runJob(job: Job, ctx: JobContext, env: Env): Promise<unknown> {
+/** AppJobRoom.enqueue, passed in so jobs can chain without a round trip to their own room. */
+export type Enqueue = (type: string, payload: unknown, options?: { maxAttempts?: number }) => void
+
+export async function runJob(job: Job, ctx: JobContext, env: Env, enqueue: Enqueue): Promise<unknown> {
   switch (job.type) {
     case SCAN_RELEASES:
-      return scanReleases(job as Job<ScanPayload>, ctx, env)
+      return scanReleases(job as Job<ScanPayload>, ctx, env, enqueue)
+    case SUMMARIZE_RELEASE:
+      return summarizeRelease(job as Job<SummarizePayload>, ctx, env)
     default:
       // Clients can enqueue any type string, so unknown types must fail loudly.
       throw new Error(`Unknown job type: ${job.type}`)

@@ -41,15 +41,15 @@ describe('planScan', () => {
 
   it('lets a just-followed repo through the cooldown', () => {
     const withNew = [...repos, repo('4', 'nodejs/node', 'bob')]
-    expect(planScan('bob', 'nodejs/node', withNew, NOW)).toMatchObject({ kind: 'scan', slugs: ['nodejs/node'] })
+    expect(planScan('bob', '4', withNew, NOW)).toMatchObject({ kind: 'scan', slugs: ['nodejs/node'] })
   })
 
-  it('does not exempt an already-scanned slug passed in the payload', () => {
-    expect(planScan('bob', 'vitejs/vite', repos, NOW)).toMatchObject({ kind: 'rate-limited' })
+  it('does not exempt an already-scanned repo passed in the payload', () => {
+    expect(planScan('bob', '3', repos, NOW)).toMatchObject({ kind: 'rate-limited' })
   })
 
-  it('ignores a payload slug the caller does not follow', () => {
-    expect(planScan('alice', 'someone/else', repos, NOW)).toMatchObject({ kind: 'scan', slugs: [] })
+  it('ignores a payload repo the caller does not own', () => {
+    expect(planScan('alice', '3', repos, NOW)).toMatchObject({ kind: 'scan', slugs: [] })
   })
 })
 

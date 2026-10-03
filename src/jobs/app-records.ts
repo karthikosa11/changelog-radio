@@ -13,7 +13,8 @@ export function appRecords(env: Env) {
   return {
     query: <T>(collection: string, where?: Record<string, unknown>) =>
       records.query(collection, where ? { where } : undefined) as Promise<StoredRecord<T>[]>,
-    create: (collection: string, data: Record<string, unknown>) => records.create(collection, data),
+    create: (collection: string, data: Record<string, unknown>) =>
+      records.create(collection, data) as Promise<{ recordId: string }>,
     update: (collection: string, id: string, data: Record<string, unknown>) =>
       records.update(collection, id, data),
   }

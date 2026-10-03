@@ -28,12 +28,12 @@ export type ScanPlan =
 
 /**
  * `enqueuedBy` is set from the verified JWT for client enqueues and by
- * followRepo; it is absent only for cron. `payloadSlug` comes from the
+ * followRepo; it is absent only for cron. `payloadRepoId` can come from a
  * client, so it is only trusted after matching one of the caller's repos.
  */
 export function planScan(
   enqueuedBy: string | null | undefined,
-  payloadSlug: string | undefined,
+  payloadRepoId: string | undefined,
   repos: StoredRecord<Repo>[],
   now: number,
 ): ScanPlan {
@@ -43,11 +43,11 @@ export function planScan(
   }
 
   const mine = repos.filter((r) => r.data.followed_by === enqueuedBy)
-  const target = payloadSlug ? mine.filter((r) => repoSlug(r.data) === payloadSlug) : mine
+  const target = payloadRepoId ? mine.filter((r) => r.recordId === payloadRepoId) : mine
 
   // A repo that has never been scanned (just followed) skips the cooldown;
   // it can only take this path once, so it can't be used to bypass the limit.
-  const neverScanned = payloadSlug !== undefined && target.length > 0 && !target[0].data.last_scanned_at
+  const neverScanned = payloadRepoId !== undefined && target.length > 0 && !target[0].data.last_scanned_at
   if (!neverScanned) {
     const lastScan = Math.max(0, ...mine.map((r) => Date.parse(r.data.last_scanned_at ?? '') || 0))
     const waitMs = lastScan + SCAN_COOLDOWN_MS - now

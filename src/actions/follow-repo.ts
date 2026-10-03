@@ -1,7 +1,7 @@
 import { enqueueJob, type ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { SCAN_RELEASES, type ScanPayload } from '../lib/jobs'
-import { formatRepoSlug, parseRepoSlug } from '../lib/repo-slug'
+import { parseRepoSlug } from '../lib/repo-slug'
 import { MAX_FOLLOWED_REPOS, type Repo } from '../schemas/repos-schema'
 
 /**
@@ -37,7 +37,7 @@ export const followRepo: ActionHandler<Env> = async ({ userId, params, tools, en
   // Fill the feed right away instead of waiting for Scan now or the cron.
   // The follow already succeeded, so a failed enqueue is logged, not returned.
   try {
-    const payload: ScanPayload = { slug: formatRepoSlug(slug) }
+    const payload: ScanPayload = { repoId: created.data.recordId }
     await enqueueJob(env.JOB_ROOMS, `app:${env.DEEPSPACE_APP_ID}`, SCAN_RELEASES, payload, {
       maxAttempts: 2,
       enqueuedBy: userId,

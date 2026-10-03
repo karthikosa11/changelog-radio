@@ -92,6 +92,12 @@ signedInTest.describe('Feed', () => {
       await expect(firstRelease).toBeVisible({ timeout: 30000 })
       await expect(firstRelease).toHaveAttribute('data-status', /pending|ready/)
 
+      // summarize-release jobs flip each row to ready in place (real AI call on first run).
+      await expect(firstRelease).toHaveAttribute('data-status', 'ready', { timeout: 60000 })
+      const summary = firstRelease.getByTestId('release-summary')
+      await expect(summary).not.toHaveText(/Summarizing|unavailable/)
+      expect((await summary.innerText()).length).toBeGreaterThan(40)
+
       await follow(page, 'https://github.com/vitejs/vite')
       await expect(page.getByTestId('follow-error')).toContainText('already follow')
 

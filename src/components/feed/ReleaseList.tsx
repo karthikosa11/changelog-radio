@@ -30,23 +30,34 @@ export function ReleaseList({ followed }: { followed: Set<string> }) {
       {mine.map((r) => (
         <li
           key={r.recordId}
-          className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="space-y-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
           data-testid="release-row"
           data-status={r.data.status}
         >
-          <span className="font-mono text-foreground">
-            {r.data.repo} <span className="text-muted-foreground">{r.data.tag}</span>
-          </span>
-          <span className="flex items-center gap-2">
-            <time className="text-xs text-muted-foreground" dateTime={r.data.published_at}>
-              {new Date(r.data.published_at).toLocaleDateString()}
-            </time>
-            <Badge variant="outline" size="sm">
-              {r.data.status}
-            </Badge>
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-foreground">
+              {r.data.repo} <span className="text-muted-foreground">{r.data.tag}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <time className="text-xs text-muted-foreground" dateTime={r.data.published_at}>
+                {new Date(r.data.published_at).toLocaleDateString()}
+              </time>
+              <Badge variant="outline" size="sm">
+                {r.data.status}
+              </Badge>
+            </span>
+          </div>
+          <p className="text-muted-foreground" data-testid="release-summary">
+            {summaryText(r.data)}
+          </p>
         </li>
       ))}
     </ul>
   )
+}
+
+function summaryText(release: Release): string {
+  if (release.status === 'ready') return release.summary ?? ''
+  if (release.status === 'failed') return 'Summary unavailable for this release.'
+  return 'Summarizing…'
 }

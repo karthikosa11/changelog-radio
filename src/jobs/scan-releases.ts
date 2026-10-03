@@ -1,32 +1,40 @@
 /**
- * scan-releases job: fetch new GitHub releases for followed repos and store
- * them as `pending`. Enqueued by Scan now (client), followRepo (one slug) and
- * the scan-all cron task (every repo).
+ * scan-releases job: fetch new GitHub releases for followed repos, store them
+ * as `pending`, and enqueue one summarize-release job each. Enqueued by Scan
+ * now (client), followRepo (one repo) and the scan-all cron task (every repo).
  */
 import type { Job, JobContext } from 'deepspace/worker'
 import type { Env } from '../../worker'
-import type { ScanPayload, ScanResult } from '../lib/jobs'
+import type { Enqueue } from '../jobs'
+import { SUMMARIZE_RELEASE, type ScanPayload, type ScanResult, type SummarizePayload } from '../lib/jobs'
 import type { Release } from '../schemas/releases-schema'
 import type { Repo } from '../schemas/repos-schema'
 import { appRecords, type AppRecords } from './app-records'
 import { fetchReleases, GitHubError } from './github'
 import { followersBySlug, planScan, repoSlug, sameIds, selectNewReleases } from './scan-plan'
 
-export async function scanReleases(job: Job<ScanPayload>, ctx: JobContext, env: Env): Promise<ScanResult> {
+export async function scanReleases(
+  job: Job<ScanPayload>,
+  ctx: JobContext,
+  env: Env,
+  enqueue: Enqueue,
+): Promise<ScanResult> {
   const store = appRecords(env)
   const repos = await store.query<Repo>('repos')
-  const plan = planScan(job.enqueuedBy, job.payload?.slug, repos, Date.now())
+  const plan = planScan(job.enqueuedBy, job.payload?.repoId, repos, Date.now())
   if (plan.kind === 'rate-limited') return { rateLimited: true, retryInSec: plan.retryInSec }
 
   const followers = followersBySlug(repos)
   const scannedAt = new Date().toISOString()
+  const summarize = (releaseId: string) =>
+    enqueue(SUMMARIZE_RELEASE, { releaseId } satisfies SummarizePayload, { maxAttempts: 3 })
   let newReleases = 0
   let failedRepos = 0
 
   for (const [i, slug] of plan.slugs.entries()) {
     ctx.progress(i / plan.slugs.length, `repo ${i + 1} of ${plan.slugs.length}`)
     try {
-      const { added, newestTag } = await scanRepo(slug, followers.get(slug) ?? [], store, env, ctx.signal)
+      const { added, newestTag } = await scanRepo(slug, followers.get(slug) ?? [], store, env, ctx.signal, summarize)
       newReleases += added
       await stampRepos(store, repos, slug, newestTag, plan.stampFor, scannedAt)
     } catch (err) {
@@ -52,6 +60,7 @@ async function scanRepo(
   store: AppRecords,
   env: Env,
   signal: AbortSignal,
+  summarize: (releaseId: string) => void,
 ): Promise<{ added: number; newestTag: string | undefined }> {
   const fetched = await fetchReleases(slug, env.GITHUB_TOKEN, signal)
   const stored = await store.query<Release>('releases', { repo: slug })
@@ -59,7 +68,7 @@ async function scanRepo(
   let added = 0
   for (const r of selectNewReleases(fetched, stored.map((s) => s.data))) {
     try {
-      await store.create('releases', {
+      const { recordId } = await store.create('releases', {
         repo: slug,
         tag: r.tag,
         published_at: r.published_at,
@@ -67,6 +76,7 @@ async function scanRepo(
         status: 'pending',
         follower_ids: followerIds,
       })
+      summarize(recordId)
       added++
     } catch (err) {
       // uniqueOn(repo, tag): a concurrent scan already stored it.
@@ -74,11 +84,14 @@ async function scanRepo(
     }
   }
 
-  // Keep read access in step with who follows the repo right now.
   for (const s of stored) {
+    // Keep read access in step with who follows the repo right now.
     if (!sameIds(s.data.follower_ids, followerIds)) {
       await store.update('releases', s.recordId, { follower_ids: followerIds })
     }
+    // Retry summaries left pending by an earlier run (e.g. the AI call was
+    // down). A duplicate job is harmless: it skips once the first finishes.
+    if (s.data.status === 'pending') summarize(s.recordId)
   }
 
   return { added, newestTag: fetched[0]?.tag }

@@ -78,7 +78,10 @@ export class AppJobRoom extends JobRoom<Env> {
   }
 
   protected async onJob(job: Job, context: JobContext): Promise<unknown> {
-    return await runJob(job, context, this.env)
+    // Jobs chain through this room's own enqueue rather than a stub round trip to themselves.
+    return await runJob(job, context, this.env, (type, payload, options) => {
+      this.enqueue(type, payload, options)
+    })
   }
 }
 
