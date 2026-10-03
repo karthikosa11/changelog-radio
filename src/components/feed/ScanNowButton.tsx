@@ -3,6 +3,7 @@ import { useAuth, useJobs } from 'deepspace'
 import { Button } from '@/components/ui'
 import { SCOPE_ID } from '@/constants'
 import { SCAN_RELEASES, type ScanPayload, type ScanResult } from '@/lib/jobs'
+import { scanResultText } from '@/lib/scan-status'
 
 export function ScanNowButton() {
   const { userId } = useAuth()
@@ -55,9 +56,7 @@ function statusText(
     case 'failed':
       return `Scan failed: ${error ?? 'unknown error'}`
     case 'succeeded':
-      if (!result) return 'Scan finished.'
-      if (result.rateLimited) return `Scanned recently. Try again in ${result.retryInSec}s.`
-      return `Checked ${result.repos} repo${result.repos === 1 ? '' : 's'}, ${result.newReleases} new release${result.newReleases === 1 ? '' : 's'}${result.failedRepos ? `, ${result.failedRepos} not found` : ''}.`
+      return result ? scanResultText(result) : 'Scan finished.'
     default:
       return 'Checks GitHub for new releases.'
   }

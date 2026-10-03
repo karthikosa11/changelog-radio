@@ -139,6 +139,8 @@ signedInTest.describe('Feed', () => {
       await follow(page, 'clr-q7k2-missing/repo-11')
       await expect(page.getByTestId('follow-error')).toContainText('up to 10')
       await expect(page.getByTestId('repo-row')).toHaveCount(10)
+      // Each follow scanned a repo that doesn't exist; the status line must say so.
+      await expect(page.getByTestId('scan-status')).toHaveText('Checked 1 repo, 1 not found.', { timeout: 15000 })
     } finally {
       await unfollowAll(page)
     }
