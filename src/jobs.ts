@@ -40,11 +40,16 @@
  */
 
 import type { Job, JobContext } from 'deepspace/worker'
+import type { Env } from '../worker'
+import { SCAN_RELEASES, type ScanPayload } from './lib/jobs'
+import { scanReleases } from './jobs/scan-releases'
 
-export async function runJob(
-  _job: Job,
-  _ctx: JobContext,
-  _env: unknown,
-): Promise<void> {
-  // No-op — implement your job handlers here. Dispatch on `_job.type`.
+export async function runJob(job: Job, ctx: JobContext, env: Env): Promise<unknown> {
+  switch (job.type) {
+    case SCAN_RELEASES:
+      return scanReleases(job as Job<ScanPayload>, ctx, env)
+    default:
+      // Clients can enqueue any type string, so unknown types must fail loudly.
+      throw new Error(`Unknown job type: ${job.type}`)
+  }
 }

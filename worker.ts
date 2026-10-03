@@ -118,6 +118,8 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
    * an authenticated app owner/admin. deepspace dev/test set it locally.
    */
   ALLOW_DEBUG_ROUTES?: string
+  /** Secret: GitHub token for the releases API (`npx deepspace secrets set GITHUB_TOKEN=...`). */
+  GITHUB_TOKEN?: string
 }
 
 export type AppContext = { Bindings: Env }

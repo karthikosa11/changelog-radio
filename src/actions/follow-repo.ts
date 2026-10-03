@@ -1,6 +1,7 @@
-import type { ActionHandler } from 'deepspace/worker'
+import { enqueueJob, type ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
-import { parseRepoSlug } from '../lib/repo-slug'
+import { SCAN_RELEASES, type ScanPayload } from '../lib/jobs'
+import { formatRepoSlug, parseRepoSlug } from '../lib/repo-slug'
 import { MAX_FOLLOWED_REPOS, type Repo } from '../schemas/repos-schema'
 
 /**
@@ -10,7 +11,7 @@ import { MAX_FOLLOWED_REPOS, type Repo } from '../schemas/repos-schema'
  * express "at most N rows per user". Tools here bypass RBAC, so every query
  * is scoped to `userId` explicitly.
  */
-export const followRepo: ActionHandler<Env> = async ({ userId, params, tools }) => {
+export const followRepo: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   const slug = parseRepoSlug(String(params.repo ?? ''))
   if (!slug) {
     return { success: false, error: 'Enter a GitHub repo as owner/name or a github.com URL.' }
@@ -30,5 +31,19 @@ export const followRepo: ActionHandler<Env> = async ({ userId, params, tools }) 
   }
 
   // followed_by is userBound: the record room stamps the caller's id itself.
-  return tools.create('repos', { owner: slug.owner, name: slug.name })
+  const created = await tools.create('repos', { owner: slug.owner, name: slug.name })
+  if (!created.success) return created
+
+  // Fill the feed right away instead of waiting for Scan now or the cron.
+  // The follow already succeeded, so a failed enqueue is logged, not returned.
+  try {
+    const payload: ScanPayload = { slug: formatRepoSlug(slug) }
+    await enqueueJob(env.JOB_ROOMS, `app:${env.DEEPSPACE_APP_ID}`, SCAN_RELEASES, payload, {
+      maxAttempts: 2,
+      enqueuedBy: userId,
+    })
+  } catch (err) {
+    console.error(`[followRepo] scan enqueue failed: ${String(err)}`)
+  }
+  return created
 }

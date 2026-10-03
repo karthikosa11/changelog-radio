@@ -26,10 +26,19 @@
  *   }
  */
 
-import type { CronTask } from 'deepspace/worker'
+import { enqueueJob, type CronTask } from 'deepspace/worker'
+import type { Env } from '../worker'
+import { SCAN_RELEASES } from './lib/jobs'
 
-export const tasks: CronTask[] = []
+export const tasks: CronTask[] = [{ name: 'scan-all', intervalMinutes: 30 }]
 
-export async function runTask(_name: string, _env: unknown): Promise<void> {
-  // No-op — implement your cron tasks here. Dispatch on `_name`.
+export async function runTask(name: string, env: Env): Promise<void> {
+  if (name === 'scan-all') {
+    // The cron only enqueues; the job does the work, so scheduled and
+    // on-demand scans share one code path, retries and live status.
+    // No enqueuedBy, which is how the job knows to scan every repo.
+    await enqueueJob(env.JOB_ROOMS, `app:${env.DEEPSPACE_APP_ID}`, SCAN_RELEASES, {}, { maxAttempts: 2 })
+    return
+  }
+  throw new Error(`Unknown cron task: ${name}`)
 }
