@@ -1,8 +1,10 @@
 import { useAuth, useQuery } from 'deepspace'
-import { Badge } from '@/components/ui'
+import { Radio } from 'lucide-react'
+import { EmptyState } from '@/components/ui'
 import type { Release } from '@/schemas/releases-schema'
+import { ReleaseCard } from './ReleaseCard'
 
-/** Live list of releases the user can read. Minimal for now; cards come with the AI summaries. */
+/** Live feed of releases for the repos the user follows, newest first. */
 export function ReleaseList({ followed }: { followed: Set<string> }) {
   const { userId } = useAuth()
   const { records, status } = useQuery<Release>('releases', {
@@ -20,44 +22,44 @@ export function ReleaseList({ followed }: { followed: Set<string> }) {
       r.data.follower_ids.includes(userId ?? ''),
   )
 
-  if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading releases…</p>
-  if (mine.length === 0) {
-    return <p className="text-sm text-muted-foreground">No releases yet. Follow a repo, then scan.</p>
-  }
-
   return (
-    <ul className="space-y-2" data-testid="release-list">
-      {mine.map((r) => (
-        <li
-          key={r.recordId}
-          className="space-y-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-          data-testid="release-row"
-          data-status={r.data.status}
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-foreground">
-              {r.data.repo} <span className="text-muted-foreground">{r.data.tag}</span>
-            </span>
-            <span className="flex items-center gap-2">
-              <time className="text-xs text-muted-foreground" dateTime={r.data.published_at}>
-                {new Date(r.data.published_at).toLocaleDateString()}
-              </time>
-              <Badge variant="outline" size="sm">
-                {r.data.status}
-              </Badge>
-            </span>
-          </div>
-          <p className="text-muted-foreground" data-testid="release-summary">
-            {summaryText(r.data)}
-          </p>
-        </li>
-      ))}
-    </ul>
+    // data-received is the raw count the server sent. The two-user test reads
+    // it to prove the read rule is enforced server-side, not just by `mine`.
+    <div data-testid="release-feed" data-received={status === 'ready' ? records.length : undefined}>
+      {status === 'loading' ? (
+        <FeedSkeleton />
+      ) : mine.length === 0 ? (
+        <EmptyState
+          icon={<Radio aria-hidden />}
+          title={followed.size === 0 ? 'Nothing to read yet' : 'No releases yet'}
+          description={
+            followed.size === 0
+              ? 'Follow a repo on the left. Its latest releases appear here within a few seconds.'
+              : 'The repos you follow have no published GitHub Releases yet. New ones appear here as they ship.'
+          }
+          className="rounded-lg border border-dashed border-border"
+        />
+      ) : (
+        <div className="space-y-4" data-testid="release-list">
+          {mine.map((r) => (
+            <ReleaseCard key={r.recordId} release={r.data} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
-function summaryText(release: Release): string {
-  if (release.status === 'ready') return release.summary ?? ''
-  if (release.status === 'failed') return 'Summary unavailable for this release.'
-  return 'Summarizing…'
+function FeedSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading releases">
+      {[0, 1].map((i) => (
+        <div key={i} className="space-y-3 rounded-lg border border-border bg-card p-4">
+          <div className="h-4 w-48 animate-pulse rounded-sm bg-muted" />
+          <div className="h-3 w-full animate-pulse rounded-sm bg-muted" />
+          <div className="h-3 w-2/3 animate-pulse rounded-sm bg-muted" />
+        </div>
+      ))}
+    </div>
+  )
 }

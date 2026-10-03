@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { captureConsoleErrors } from './helpers/errors'
 import { test as signedInTest } from 'deepspace/testing'
+import { follow, unfollowAll } from './helpers/feed'
 
 /**
  * Smoke tests covering both page kinds this template ships:
@@ -53,6 +54,19 @@ test.describe('Smoke tests', () => {
     expect(offenders).toEqual([])
   })
 
+  test('landing names the product, not the scaffold', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your dependencies’ releases, in three sentences.')
+    await expect(page).toHaveTitle(/Changelog Radio/)
+    await expect(page.getByTestId('release-row')).toHaveAttribute('data-status', 'ready')
+  })
+
+  test('signed-out /feed asks for sign-in instead of showing data', async ({ page }) => {
+    await page.goto('/feed')
+    await expect(page.getByText('Sign in to continue')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('release-feed')).toHaveCount(0)
+  })
+
   test('dynamic app boundary mounts on /home', async ({ page }) => {
     await page.goto('/home')
     await expect(page.getByTestId('app-navigation')).toBeVisible({ timeout: 15000 })
@@ -79,8 +93,8 @@ test.describe('Smoke tests', () => {
  */
 signedInTest.describe('Feed', () => {
   signedInTest('follow fetches releases live; Scan now is rate-limited; unfollow hides them', async ({ users }) => {
-    const [alice] = await users(['Alice'])
-    const page = alice.page
+    const [carol] = await users(['Carol'])
+    const page = carol.page
     await page.goto('/feed')
     await unfollowAll(page)
     try {
@@ -112,8 +126,8 @@ signedInTest.describe('Feed', () => {
   })
 
   signedInTest('caps follows at 10 repos', async ({ users }) => {
-    const [bob] = await users(['Bob'])
-    const page = bob.page
+    const [dave] = await users(['Dave'])
+    const page = dave.page
     await page.goto('/feed')
     await unfollowAll(page)
     try {
@@ -130,19 +144,3 @@ signedInTest.describe('Feed', () => {
     }
   })
 })
-
-async function follow(page: import('@playwright/test').Page, repo: string) {
-  await page.getByTestId('follow-input').fill(repo)
-  const done = page.waitForResponse((res) => res.url().endsWith('/api/actions/followRepo'))
-  await page.getByTestId('follow-submit').click()
-  await done
-}
-
-async function unfollowAll(page: import('@playwright/test').Page) {
-  await expect(page.getByText('Loading repos…')).toHaveCount(0, { timeout: 15000 })
-  const buttons = page.getByRole('button', { name: /^Unfollow / })
-  for (let n = await buttons.count(); n > 0; n--) {
-    await buttons.first().click()
-    await expect(buttons).toHaveCount(n - 1)
-  }
-}

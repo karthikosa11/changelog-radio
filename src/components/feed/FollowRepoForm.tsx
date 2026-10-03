@@ -1,20 +1,30 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, useToast } from '@/components/ui'
 import { followRepo } from '@/lib/follow-repo-client'
 
 export function FollowRepoForm() {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const toast = useToast()
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!value.trim()) return
+    const repo = value.trim()
+    if (!repo) return
     setPending(true)
-    const err = await followRepo(value)
-    setPending(false)
-    setError(err)
-    if (!err) setValue('')
+    try {
+      const err = await followRepo(repo)
+      setError(err)
+      if (!err) {
+        setValue('')
+        toast.success(`Following ${repo}`, 'Its latest releases are on the way.')
+      }
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setPending(false)
+    }
   }
 
   return (

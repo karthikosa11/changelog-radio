@@ -44,3 +44,34 @@
   --color-shell: #fafafa;
   --color-shell-panel: #ffffff;
 }
+
+/* Bulletin — Changelog Radio's theme. A printed station bulletin: warm paper,
+ * near-black ink, one burnt-orange signal accent. Light, because it is read
+ * in daylight between other work. Sharp corners: printed, not app-y. */
+[data-theme="bulletin"] {
+  color-scheme: light;
+  --color-background: #f6f4ee;
+  --color-foreground: #1c1b18;
+  --color-card: #fdfcf8;
+  --color-card-foreground: #1c1b18;
+  --color-popover: #fdfcf8;
+  --color-popover-foreground: #1c1b18;
+  --color-primary: #a8431a;
+  --color-primary-foreground: #fdfcf8;
+  --color-secondary: #ebe8df;
+  --color-secondary-foreground: #1c1b18;
+  --color-muted: #ebe8df;
+  --color-muted-foreground: #5c5850;
+  --color-accent: #e6e2d7;
+  --color-accent-foreground: #1c1b18;
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #fdfcf8;
+  --color-border: #d9d4c7;
+  --color-input: #cfc9ba;
+  --color-ring: #a8431a;
+  --radius: 0.25rem;
+  --shadow-card: 0 1px 0 0 rgba(28, 27, 24, 0.04);
+  --shadow-card-hover: 0 1px 3px 0 rgba(28, 27, 24, 0.08);
+  --color-shell: #efece4;
+  --color-shell-panel: #fdfcf8;
+}

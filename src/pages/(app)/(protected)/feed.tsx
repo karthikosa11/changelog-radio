@@ -1,5 +1,6 @@
 /**
- * The signed-in feed: follow repos, trigger a scan, see releases live.
+ * Home skeleton: data-forward. The feed is the product, so it is the first
+ * thing a signed-in user sees, with the repo list beside it.
  * Gated by (protected)/_layout.tsx.
  */
 import { useAuth, useQuery } from 'deepspace'
@@ -18,15 +19,20 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-full text-foreground">
-      <div className="mx-auto grid max-w-5xl gap-10 px-6 py-12 md:grid-cols-[18rem_1fr]">
-        <aside className="space-y-4">
-          <h2 className="text-sm font-semibold">Following</h2>
+      <div className="mx-auto grid max-w-5xl gap-10 px-6 py-10 md:grid-cols-[17rem_1fr]">
+        <aside className="space-y-4 md:sticky md:top-6 md:self-start">
+          <h2 className="font-mono text-xs uppercase tracking-wide text-muted-foreground">Following</h2>
           <FollowRepoForm />
           <RepoList repos={repos.records} loading={repos.status === 'loading'} />
         </aside>
-        <main className="space-y-4">
+        <main className="min-w-0 space-y-6">
           <div className="flex items-start justify-between gap-4">
-            <h1 className="text-2xl font-bold tracking-tight">Releases</h1>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight">Releases</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                New releases from the repos you follow, newest first. Checked every 30 minutes.
+              </p>
+            </div>
             <ScanNowButton />
           </div>
           <ReleaseList followed={followed} />

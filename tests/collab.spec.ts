@@ -16,6 +16,7 @@
  * cleanup. No need to manage browser contexts manually.
  */
 import { test, expect, loadAllTestAccounts } from 'deepspace/testing'
+import { follow, unfollowAll } from './helpers/feed'
 
 // A machine that has never created test accounts is the normal state of a
 // fresh checkout, and there `users()` throws — turning "you have no pool yet"
@@ -62,72 +63,36 @@ test('each browser renders its own signed-in account', async ({ users }) => {
   }
 })
 
-test('API status page renders loading success and error states', async ({ users }) => {
-  const [user] = await users(1)
-  let shouldFail = false
-  let requestCount = 0
+/**
+ * Permissions across two real users. Asserts on data-received (records the
+ * server actually sent), not only on rendered cards, because the feed also
+ * filters client-side and would hide a server-side leak.
+ */
+test('repos are private and releases reach only their followers', async ({ users }) => {
+  const [alice, bob] = await users(['Alice', 'Bob'])
+  const feed = (p: typeof alice.page) => p.getByTestId('release-feed')
+  await Promise.all([alice.page.goto('/feed'), bob.page.goto('/feed')])
+  await Promise.all([unfollowAll(alice.page), unfollowAll(bob.page)])
 
-  await user.page.route('**/api/integrations', async (route) => {
-    requestCount += 1
-    if (shouldFail) {
-      await route.fulfill({
-        status: 502,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: false, error: 'Catalog unavailable' }),
-      })
-      return
-    }
+  try {
+    await follow(alice.page, 'vitejs/vite')
+    // Alice's follow scan also recomputes follower_ids, removing Bob from earlier runs.
+    await expect(alice.page.getByTestId('release-row').first()).toBeVisible({ timeout: 30000 })
 
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true, data: { integrations: { openai: {}, wikipedia: {} } } }),
-    })
-  })
+    // Bob: none of Alice's repos, and the server sends him no releases at all.
+    await expect(bob.page.getByTestId('repo-row')).toHaveCount(0)
+    await expect(feed(bob.page)).toHaveAttribute('data-received', '0', { timeout: 15000 })
 
-  await user.page.goto('/api-status')
-  await expect(user.page.getByText('Loading integration catalog...')).toBeVisible()
-  await expect(user.page.getByText('Integration catalog ready')).toBeVisible()
-  await expect(user.page.getByText('2 integrations available.')).toBeVisible()
+    // Once Bob follows the same repo, the shared release rows reach him live.
+    await follow(bob.page, 'vitejs/vite')
+    await expect(bob.page.getByTestId('release-row').first()).toBeVisible({ timeout: 30000 })
+    await expect(alice.page.getByTestId('repo-row')).toHaveCount(1)
 
-  shouldFail = true
-  await user.page.getByRole('button', { name: 'Refresh' }).click()
-  await expect(user.page.getByText('Catalog unavailable')).toBeVisible()
-  await expect(user.page.getByText('Showing the last loaded catalog')).toBeVisible()
-  await expect(user.page.getByText('Integration catalog ready')).toBeVisible()
-
-  const urlAfterFailure = user.page.url()
-  const requestsAfterFailure = requestCount
-  await user.page.getByRole('button', { name: 'Refresh' }).click()
-  await expect.poll(() => requestCount).toBeGreaterThan(requestsAfterFailure)
-  expect(user.page.url()).toBe(urlAfterFailure)
-})
-
-test('API status page shows local retry after first-load API failure', async ({ users }) => {
-  const [user] = await users(1)
-  let requestCount = 0
-
-  await user.page.route('**/api/integrations', async (route) => {
-    requestCount += 1
-    await route.fulfill({
-      status: 502,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: false, error: 'Catalog unavailable' }),
-    })
-  })
-
-  await user.page.goto('/api-status')
-  await expect(user.page.getByText('Loading integration catalog...')).toBeVisible()
-  await expect(user.page.getByText('Could not load API data')).toBeVisible()
-  await expect(user.page.getByText('Retried 1 time automatically.')).toBeVisible()
-
-  const retryButton = user.page.getByRole('button', { name: 'Retry' })
-  await expect(retryButton).toBeVisible()
-
-  const urlAfterFailure = user.page.url()
-  const requestsAfterFailure = requestCount
-  await retryButton.click()
-  await expect.poll(() => requestCount).toBeGreaterThan(requestsAfterFailure)
-  expect(user.page.url()).toBe(urlAfterFailure)
+    // Alice unfollowing removes her own copy of the follow, not Bob's.
+    await unfollowAll(alice.page)
+    await expect(alice.page.getByTestId('release-row')).toHaveCount(0)
+    await expect(bob.page.getByTestId('release-row').first()).toBeVisible()
+  } finally {
+    await Promise.all([unfollowAll(alice.page), unfollowAll(bob.page)])
+  }
 })

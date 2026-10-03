@@ -39,6 +39,11 @@
   --color-ring: #818cf8;
   --radius: 0.5rem;
 
+  /* IBM Plex: a technical family with a readable sans for prose and a mono
+     for labels, tags and dates. Loaded in index.html. */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
   /*
    * Map the rounded-* utilities onto --radius so a theme (or you) can change
    * the app's shape language in one place. At the default 0.5rem these equal
@@ -231,4 +236,22 @@
   a, button, [role="button"], input, select, textarea {
     touch-action: manipulation;
   }
+}
+
+/*
+ * Landing hero: a release goes from "summarizing" to three labelled lines,
+ * once, on load. CSS-only so the prerendered HTML already holds the final
+ * state; reduced-motion users get that final state with no animation.
+ */
+@keyframes hero-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes hero-fade-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+.hero-pending { opacity: 0; animation: hero-fade-out 200ms linear 1200ms both; }
+.hero-ready { animation: hero-fade-in 200ms linear 1200ms both; }
+.hero-line-0 { animation: hero-fade-in 240ms ease-out 1350ms both; }
+.hero-line-1 { animation: hero-fade-in 240ms ease-out 1650ms both; }
+.hero-line-2 { animation: hero-fade-in 240ms ease-out 1950ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-pending, .hero-ready, .hero-line-0, .hero-line-1, .hero-line-2 { animation: none; }
 }
